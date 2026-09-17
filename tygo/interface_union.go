@@ -66,11 +66,8 @@ func (g *PackageGenerator) analyzeInterfaceUnions() error {
 	var interfaces []annotatedInterface
 	var candidates []unionCandidate
 	// Collect interfaces and emitted types, preserving package traversal order.
-	for _, file := range g.pkg.Syntax {
-		if g.conf.IsFileIgnored(syntaxFilePath(g.pkg, file)) {
-			continue
-		}
-		for _, declaration := range file.Decls {
+	for _, file := range g.files {
+		for _, declaration := range file.syntax.Decls {
 			genDecl, ok := declaration.(*ast.GenDecl)
 			if !ok {
 				continue

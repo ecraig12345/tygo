@@ -22,7 +22,7 @@ func ConvertGoToTypescript(goCode string, pkgConfig PackageConfig) (string, erro
 
 	fset := token.NewFileSet()
 
-	f, err := parser.ParseFile(fset, "", src, parser.AllErrors|parser.ParseComments)
+	f, err := parser.ParseFile(fset, "input.go", src, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse source: %w", err)
 	}
@@ -47,12 +47,16 @@ func ConvertGoToTypescript(goCode string, pkgConfig PackageConfig) (string, erro
 		if err != nil {
 			return "", fmt.Errorf("failed to type-check interface union: %w", err)
 		}
-		pkgGen.pkg = &packages.Package{
-			PkgPath:   "tygoconvert",
-			Fset:      fset,
-			Syntax:    []*ast.File{f},
-			Types:     typesPackage,
-			TypesInfo: typesInfo,
+		pkg := &packages.Package{
+			PkgPath:         "tygoconvert",
+			Fset:            fset,
+			Syntax:          []*ast.File{f},
+			CompiledGoFiles: []string{"input.go"},
+			Types:           typesPackage,
+			TypesInfo:       typesInfo,
+		}
+		if err := pkgGen.setPackage(pkg); err != nil {
+			return "", err
 		}
 		if err := pkgGen.analyzeInterfaceUnions(); err != nil {
 			return "", err

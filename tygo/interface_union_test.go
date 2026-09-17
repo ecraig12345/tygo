@@ -188,32 +188,38 @@ func (Excluded) isMessage() {}
 	config, err := (PackageConfig{ExcludeFiles: []string{"excluded.go"}}).Normalize()
 	require.NoError(t, err)
 	syntaxPackage := &packages.Package{
-		Fset:    fileSet,
-		GoFiles: []string{"excluded.go", "included.go", "interface.go"},
-		Syntax:  files,
+		Fset:            fileSet,
+		GoFiles:         []string{"excluded.go", "included.go", "interface.go"},
+		CompiledGoFiles: []string{"interface.go", "included.go", "excluded.go"},
+		Syntax:          files,
 	}
-	assert.True(t, packageHasUnionDirective(syntaxPackage, &config))
+	directiveGenerator := &PackageGenerator{conf: &config}
+	require.NoError(t, directiveGenerator.setPackage(syntaxPackage))
+	hasDirective := directiveGenerator.packageHasUnionDirective()
+	assert.True(t, hasDirective)
 
-	generator := &PackageGenerator{
-		conf: &config,
-		pkg: &packages.Package{
-			PkgPath:   "test",
-			Fset:      fileSet,
-			Syntax:    files,
-			Types:     typesPackage,
-			TypesInfo: typesInfo,
-		},
-	}
+	generator := &PackageGenerator{conf: &config}
+	require.NoError(t, generator.setPackage(&packages.Package{
+		PkgPath:         "test",
+		Fset:            fileSet,
+		Syntax:          files,
+		CompiledGoFiles: []string{"interface.go", "included.go", "excluded.go"},
+		Types:           typesPackage,
+		TypesInfo:       typesInfo,
+	}))
 
 	require.NoError(t, generator.analyzeInterfaceUnions())
 	assert.Equal(t, []string{"Included"}, generator.interfaceUnions[interfaceFile.Decls[0].(*ast.GenDecl).Specs[0].(*ast.TypeSpec)])
 
 	config.ExcludeFiles = []string{"included.go", "excluded.go"}
+	require.NoError(t, generator.setPackage(generator.pkg))
 	err = generator.analyzeInterfaceUnions()
 	require.EqualError(t, err, "cannot generate union for interface Message: no eligible implementing types were found in package test")
 
 	config.ExcludeFiles = []string{"interface.go"}
-	assert.False(t, packageHasUnionDirective(syntaxPackage, &config))
+	require.NoError(t, directiveGenerator.setPackage(syntaxPackage))
+	hasDirective = directiveGenerator.packageHasUnionDirective()
+	assert.False(t, hasDirective)
 }
 
 func TestGenerateLoadsTypesForUnionPackages(t *testing.T) {
